@@ -1,0 +1,18 @@
+{
+  "fusion_weights": {
+    "template": 0.6,
+    "embedding": 0.4
+  },
+  "reference_priors": {
+    "template": 0.4138413124350151,
+    "embedding": 0.043503148834018096
+  },
+  "threshold": 3.4191640497916382,
+  "threshold_policy": "min(FAR <= 1.0% bound, 1.25 x genuine 99% quantile)",
+  "far_bound": 7.627654980146616,
+  "genuine_bound": 3.4191640497916382,
+  "data_source": "synthetic held-out gestures",
+  "embedding_model": "static-20261002-055446",
+  "calibrated_at": "2026-10-02T06:16:58Z",
+  "source": "pipelines/evaluate_static_gesture_model.py"
+}

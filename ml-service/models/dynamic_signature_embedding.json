@@ -1,0 +1,65 @@
+{
+  "model_version": "dynamic-20261002-060233",
+  "feature_version": "dynamic-v1",
+  "trained_at": "2026-10-02T06:02:33Z",
+  "input_shape": [
+    128,
+    9
+  ],
+  "input_mean": [
+    -2.774565126262285e-11,
+    -1.5328018021509848e-10,
+    -0.020121097564697266,
+    0.012041483074426651,
+    2.175213575363159,
+    0.008856878615915775,
+    -0.008402113802731037,
+    -0.1554766148328781,
+    33.811824798583984
+  ],
+  "input_std": [
+    0.26032501459121704,
+    0.26557520031929016,
+    1.713230013847351,
+    1.7720115184783936,
+    1.160630702972412,
+    0.7149064540863037,
+    0.6986442804336548,
+    12.766009330749512,
+    30.7475643157959
+  ],
+  "train_samples": 9600,
+  "train_classes": 800,
+  "epochs": 18,
+  "seed": 11,
+  "finetuned_on_real_data": false,
+  "validation_heldout_writers": {
+    "genuine_trials": 1800,
+    "impostor_trials": 49535,
+    "genuine_mean": 0.18678803741931915,
+    "impostor_mean": 0.9852153658866882,
+    "eer": 0.015019935399212678,
+    "eer_threshold": 0.5695847272872925,
+    "roc_auc": 0.9972619023586017
+  },
+  "validation_skilled_forgeries": {
+    "genuine_trials": 900,
+    "impostor_trials": 2160,
+    "genuine_mean": 0.20001840591430664,
+    "impostor_mean": 0.5245544910430908,
+    "eer": 0.19546296296296295,
+    "eer_threshold": 0.2997053861618042,
+    "roc_auc": 0.8797510288065844
+  },
+  "research_dataset_pairs": {
+    "genuine_trials": 1305,
+    "impostor_trials": 33394,
+    "genuine_mean": 0.6320202350616455,
+    "impostor_mean": 0.8276464939117432,
+    "eer": 0.31948443488024214,
+    "eer_threshold": 0.7410606145858765,
+    "roc_auc": 0.7418096535569632
+  },
+  "final_loss": 2.678114652633667,
+  "final_accuracy": 0.4051041603088379
+}

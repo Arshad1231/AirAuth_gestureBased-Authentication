@@ -1,0 +1,2013 @@
+============================================================
+                    AIRSIGN AUTH
+       IN-AIR SIGNATURE BASED BIOMETRIC AUTHENTICATION
+              DETAILED SYSTEM ARCHITECTURE
+============================================================
+
+
+1. PROJECT OVERVIEW
+------------------------------------------------------------
+
+AirSign Auth is a biometric authentication system in which a user
+draws their personal signature in the air using their index finger.
+
+A webcam captures the user's hand movement. MediaPipe detects the
+hand and extracts hand landmarks. The index-finger movement is then
+converted into a time-series trajectory.
+
+The trajectory is processed to extract both:
+
+1. Signature Shape
+2. Signature Behavior
+
+The system can analyze:
+
+- X/Y/Z position
+- Movement direction
+- Velocity
+- Acceleration
+- Timing
+- Trajectory length
+- Direction changes
+- Curvature
+- Signature size
+- Start position
+- End position
+- Temporal movement patterns
+
+The trained machine-learning model then determines whether the new
+signature belongs to the claimed user.
+
+The system has two major pipelines:
+
+REGISTRATION:
+    Learn the user's signature pattern and create a profile.
+
+AUTHENTICATION:
+    Compare a newly captured signature against the registered
+    user's signature profile.
+
+
+============================================================
+2. HIGH-LEVEL SYSTEM ARCHITECTURE
+============================================================
+
+                         AIRSIGN AUTH
+                              |
+                              v
+                    +--------------------+
+                    |       USER         |
+                    +--------------------+
+                              |
+                              v
+                    +--------------------+
+                    | WEBCAM / CAMERA    |
+                    +--------------------+
+                              |
+                              v
+                    +--------------------+
+                    | OPENCV             |
+                    | VIDEO CAPTURE      |
+                    +--------------------+
+                              |
+                              v
+                    +--------------------+
+                    | MEDIAPIPE HAND     |
+                    | TRACKING            |
+                    +--------------------+
+                              |
+                              v
+                    +--------------------+
+                    | INDEX FINGER       |
+                    | TRACKING            |
+                    +--------------------+
+                              |
+                              v
+                    +--------------------+
+                    | TRAJECTORY         |
+                    | GENERATION         |
+                    +--------------------+
+                              |
+                              v
+                    +--------------------+
+                    | PREPROCESSING      |
+                    +--------------------+
+                              |
+                              v
+                    +--------------------+
+                    | FEATURE            |
+                    | EXTRACTION         |
+                    +--------------------+
+                              |
+                  +-----------+-----------+
+                  |                       |
+                  v                       v
+          +---------------+       +---------------+
+          | REGISTRATION  |       | AUTHENTICATION|
+          | PIPELINE      |       | PIPELINE      |
+          +---------------+       +---------------+
+                  |                       |
+                  v                       v
+          +---------------+       +---------------+
+          | USER PROFILE  |       | ML MODEL      |
+          +---------------+       +---------------+
+                  |                       |
+                  v                       v
+          +---------------+       +---------------+
+          | DATABASE      |<----->| SCORE         |
+          +---------------+       +---------------+
+                                          |
+                                          v
+                                  +---------------+
+                                  | THRESHOLD     |
+                                  | CHECK         |
+                                  +---------------+
+                                    /         \
+                                   /           \
+                                  v             v
+                         ACCESS GRANTED   ACCESS DENIED
+                                  |
+                                  v
+                         SECURE APPLICATION
+
+
+============================================================
+3. ARCHITECTURE LAYERS
+============================================================
+
+The complete system is divided into the following layers:
+
+LAYER 1  - User and Camera Input
+LAYER 2  - Computer Vision / Hand Tracking
+LAYER 3  - Trajectory Generation
+LAYER 4  - Raw Data Storage
+LAYER 5  - Preprocessing
+LAYER 6  - Feature Engineering
+LAYER 7  - Machine Learning
+LAYER 8  - Authentication / Decision
+LAYER 9  - Backend
+LAYER 10 - Frontend
+LAYER 11 - Database
+LAYER 12 - Evaluation and Monitoring
+
+
+============================================================
+4. LAYER 1 - USER AND CAMERA INPUT
+============================================================
+
+Purpose:
+    Capture the user's in-air signature.
+
+The user stands or sits in front of a webcam and uses their index
+finger to draw their personal signature in the air.
+
+Flow:
+
+USER
+  |
+  | Draw signature
+  v
+INDEX FINGER
+  |
+  v
+WEBCAM
+  |
+  v
+VIDEO FRAMES
+
+The webcam continuously captures frames.
+
+The frames are passed to the computer-vision pipeline.
+
+Recommended setup:
+
+- Laptop webcam is sufficient for the prototype.
+- 720p or higher is preferred.
+- Good lighting is recommended.
+- Background should not be excessively cluttered.
+- User's hand should remain inside the camera frame.
+
+No special hardware is required for the initial prototype.
+
+
+============================================================
+5. LAYER 2 - COMPUTER VISION / HAND TRACKING
+============================================================
+
+Technology:
+
+    OpenCV
+    MediaPipe Hands
+
+Purpose:
+
+    Detect the user's hand and extract hand landmarks.
+
+MediaPipe Hands provides approximately 21 landmarks for a detected
+hand.
+
+Important landmark:
+
+    Index Finger Tip = Landmark 8
+
+The first version of the system will primarily track the index
+fingertip.
+
+For every video frame:
+
+    Frame 1 -> (x1, y1, z1)
+    Frame 2 -> (x2, y2, z2)
+    Frame 3 -> (x3, y3, z3)
+    ...
+    Frame N -> (xn, yn, zn)
+
+Each point also has a timestamp.
+
+Therefore, one signature becomes:
+
+    [(x1,y1,z1,t1),
+     (x2,y2,z2,t2),
+     (x3,y3,z3,t3),
+     ...
+     (xn,yn,zn,tn)]
+
+Future experiments can also use all 21 hand landmarks.
+
+Possible experiments:
+
+    Experiment A:
+        Index fingertip only
+
+    Experiment B:
+        Full hand landmarks
+
+    Experiment C:
+        Index fingertip + temporal features
+
+This allows the capstone to contain an ablation study.
+
+
+============================================================
+6. LAYER 3 - TRAJECTORY GENERATION
+============================================================
+
+Purpose:
+
+    Convert finger movement into a digital representation of the
+    air signature.
+
+Every valid video frame generates a coordinate.
+
+Example:
+
+    TIME       X       Y       Z
+    --------------------------------
+    0.000     0.51    0.62    0.01
+    0.033     0.52    0.61    0.01
+    0.066     0.54    0.60    0.00
+    0.099     0.57    0.58    0.00
+    0.132     0.60    0.55    0.01
+
+The system continues collecting points until the signature ends.
+
+The recording can stop using:
+
+- Keyboard key
+- UI button
+- Hand gesture
+- Inactivity detection
+
+One complete recording becomes one signature sample.
+
+
+============================================================
+7. RAW SIGNATURE DATA
+============================================================
+
+Each signature should contain:
+
+    user_id
+    session_id
+    sample_id
+    timestamp
+    x
+    y
+    z
+
+Example CSV:
+
+user_id,session_id,sample_id,timestamp,x,y,z
+
+U001,S01,001,0.000,0.51,0.62,0.01
+U001,S01,001,0.033,0.52,0.61,0.01
+U001,S01,001,0.066,0.54,0.60,0.00
+U001,S01,001,0.099,0.57,0.58,0.00
+
+CSV will be useful during the research and experimentation stage.
+
+JSON can also be used later if required.
+
+
+============================================================
+8. DATASET ORGANIZATION
+============================================================
+
+Recommended structure:
+
+data/
+|
++-- raw/
+|   |
+|   +-- U001/
+|   |   |
+|   |   +-- S01/
+|   |   |   +-- signature_001.csv
+|   |   |   +-- signature_002.csv
+|   |   |   +-- signature_003.csv
+|   |   |
+|   |   +-- S02/
+|   |       +-- signature_011.csv
+|   |
+|   +-- U002/
+|       |
+|       +-- S01/
+|           +-- signature_001.csv
+|
++-- processed/
+|
++-- features/
+|
++-- metadata/
+
+U001 = User 001
+
+S01 = Session 01
+
+
+============================================================
+9. DATA COLLECTION PROTOCOL
+============================================================
+
+Each user should provide multiple genuine signatures.
+
+Example:
+
+USER U001
+
+Session 1:
+    10 signatures
+
+Session 2:
+    5 signatures
+
+Session 3:
+    5 signatures
+
+Total:
+    20 genuine signatures
+
+Possible target:
+
+    20-50 users
+    20-30 signatures per user
+
+The exact number depends on participant availability.
+
+We should also collect impostor attempts.
+
+Example:
+
+User A registers their signature.
+
+User B attempts User A's signature.
+
+This becomes an impostor authentication sample.
+
+Therefore:
+
+GENUINE:
+    User performs their own signature.
+
+IMPOSTOR:
+    Different user attempts authentication as the claimed user.
+
+
+============================================================
+10. REGISTRATION PIPELINE
+============================================================
+
+The registration pipeline creates the user's signature profile.
+
+FLOW:
+
+USER REGISTRATION
+       |
+       v
+ENTER USER ID
+       |
+       v
+START CAMERA
+       |
+       v
+DRAW SIGNATURE
+       |
+       v
+MEDIAPIPE HAND DETECTION
+       |
+       v
+INDEX FINGER TRACKING
+       |
+       v
+TRAJECTORY EXTRACTION
+       |
+       v
+SAVE SAMPLE
+       |
+       v
+REPEAT MULTIPLE TIMES
+       |
+       v
+PREPROCESSING
+       |
+       v
+FEATURE EXTRACTION
+       |
+       v
+MODEL / PROFILE GENERATION
+       |
+       v
+STORE USER PROFILE
+       |
+       v
+REGISTRATION COMPLETE
+
+
+============================================================
+11. PREPROCESSING LAYER
+============================================================
+
+Raw signatures will not always have the same number of points.
+
+Example:
+
+Signature A:
+    180 points
+
+Signature B:
+    247 points
+
+Signature C:
+    205 points
+
+The system therefore needs preprocessing.
+
+Preprocessing operations may include:
+
+1. Noise removal
+2. Missing-point handling
+3. Outlier removal
+4. Coordinate normalization
+5. Translation normalization
+6. Scale normalization
+7. Sequence resampling
+8. Temporal normalization
+9. Optional smoothing
+
+
+11.1 Translation Normalization
+
+The user may draw the same signature at different locations.
+
+Example:
+
+Signature 1:
+    Starts at x = 0.30
+
+Signature 2:
+    Starts at x = 0.60
+
+The shape can still be the same.
+
+Therefore, coordinates can be normalized relative to a reference
+point such as the starting point or centroid.
+
+
+11.2 Scale Normalization
+
+The user may draw a large signature during one attempt and a smaller
+signature during another.
+
+The system can normalize the bounding box or coordinate range.
+
+
+11.3 Temporal Normalization
+
+Different signatures may take different amounts of time.
+
+Example:
+
+Signature A:
+    1.8 seconds
+
+Signature B:
+    2.7 seconds
+
+Sequence models may require resampling or other sequence-handling
+techniques.
+
+
+============================================================
+12. FEATURE EXTRACTION
+============================================================
+
+The feature extraction layer converts trajectory data into
+information that machine-learning models can learn from.
+
+FEATURE GROUP 1 - POSITION
+
+    x
+    y
+    z
+
+
+FEATURE GROUP 2 - TIME
+
+    timestamp
+    elapsed time
+    total duration
+
+
+FEATURE GROUP 3 - VELOCITY
+
+    vx
+    vy
+    vz
+
+
+FEATURE GROUP 4 - ACCELERATION
+
+    ax
+    ay
+    az
+
+
+FEATURE GROUP 5 - DIRECTION
+
+    movement direction
+    angle
+    angle changes
+
+
+FEATURE GROUP 6 - CURVATURE
+
+    trajectory curvature
+    curve changes
+
+
+FEATURE GROUP 7 - DISTANCE
+
+    point-to-point distance
+    total trajectory length
+
+
+FEATURE GROUP 8 - SPATIAL FEATURES
+
+    bounding box
+    width
+    height
+    depth
+
+
+FEATURE GROUP 9 - TEMPORAL FEATURES
+
+    signature duration
+    average speed
+    maximum speed
+    pause duration
+    speed variation
+
+
+FEATURE GROUP 10 - BEHAVIORAL FEATURES
+
+    direction-change frequency
+    acceleration variation
+    movement rhythm
+    speed pattern
+
+
+============================================================
+13. FEATURE REPRESENTATION
+============================================================
+
+One trajectory point may become:
+
+[x, y, z,
+ vx, vy, vz,
+ ax, ay, az,
+ direction,
+ curvature]
+
+A complete signature becomes a sequence:
+
+T1 -> Feature Vector
+T2 -> Feature Vector
+T3 -> Feature Vector
+...
+TN -> Feature Vector
+
+This is important because an air signature is a TEMPORAL SEQUENCE.
+
+Therefore, sequence models can be used.
+
+
+============================================================
+14. MACHINE LEARNING LAYER
+============================================================
+
+The machine-learning pipeline should be developed progressively.
+
+We should begin with classical baseline models and then move to
+advanced sequence/metric-learning models.
+
+
+------------------------------------------------------------
+14.1 CLASSICAL BASELINE MODELS
+------------------------------------------------------------
+
+Possible models:
+
+- Random Forest
+- Support Vector Machine
+- k-Nearest Neighbors
+
+Purpose:
+
+    Establish a baseline performance using engineered features.
+
+
+------------------------------------------------------------
+14.2 SEQUENCE MODELS
+------------------------------------------------------------
+
+Possible models:
+
+- LSTM
+- BiLSTM
+- GRU
+
+Input:
+
+    Sequence of signature feature vectors
+
+Output:
+
+    User prediction or signature representation
+
+
+------------------------------------------------------------
+14.3 SIAMESE NETWORK
+------------------------------------------------------------
+
+A Siamese network can be investigated as the advanced authentication
+architecture.
+
+Instead of asking:
+
+    "Which user is this?"
+
+The system asks:
+
+    "Does this signature belong to this user?"
+
+Inputs:
+
+    Signature A
+    Signature B
+
+Both signatures are passed through feature/embedding networks.
+
+The network generates embeddings.
+
+The embeddings are compared using a similarity/distance metric.
+
+Example:
+
+    Signature A
+          |
+          v
+    Embedding A
+
+    Signature B
+          |
+          v
+    Embedding B
+
+          |
+          v
+
+    Similarity / Distance
+          |
+          v
+
+    Authentication Decision
+
+
+============================================================
+15. WHY SIAMESE NETWORK IS RELEVANT
+============================================================
+
+Authentication is fundamentally a verification problem.
+
+Example:
+
+Claimed User:
+    U001
+
+New Signature:
+    Signature X
+
+Stored User Signature:
+    User U001 Profile
+
+Question:
+
+    Does Signature X belong to U001?
+
+This is different from simply classifying signatures into user
+categories.
+
+A Siamese/metric-learning architecture can therefore be explored
+for the final authentication system.
+
+
+============================================================
+16. MODEL TRAINING PIPELINE
+============================================================
+
+Raw Signature Data
+        |
+        v
+Preprocessing
+        |
+        v
+Feature Extraction
+        |
+        v
+Dataset Split
+        |
+        v
+Model Training
+        |
+        v
+Hyperparameter Tuning
+        |
+        v
+Validation
+        |
+        v
+Threshold Selection
+        |
+        v
+Final Test Evaluation
+        |
+        v
+Save Model
+
+
+============================================================
+17. DATA SPLITTING
+============================================================
+
+Possible initial split:
+
+    Training   = 70%
+    Validation = 15%
+    Testing    = 15%
+
+However, session-based splitting is preferable when possible.
+
+Example:
+
+Training:
+    Session 1
+
+Validation:
+    Session 2
+
+Testing:
+    Session 3
+
+This helps evaluate whether the system generalizes to a new session
+instead of memorizing one recording environment.
+
+
+============================================================
+18. AUTHENTICATION PIPELINE
+============================================================
+
+When a registered user attempts to log in:
+
+STEP 1:
+    User enters account/user ID.
+
+STEP 2:
+    Camera starts.
+
+STEP 3:
+    User draws their signature.
+
+STEP 4:
+    MediaPipe detects the hand.
+
+STEP 5:
+    Index fingertip trajectory is extracted.
+
+STEP 6:
+    Trajectory is preprocessed.
+
+STEP 7:
+    Features are extracted.
+
+STEP 8:
+    ML model generates prediction or embedding.
+
+STEP 9:
+    New signature is compared with the claimed user's profile.
+
+STEP 10:
+    Authentication score is calculated.
+
+STEP 11:
+    Score is compared with threshold.
+
+STEP 12:
+
+    If score >= threshold:
+
+        ACCESS GRANTED
+
+    Else:
+
+        ACCESS DENIED
+
+
+============================================================
+19. AUTHENTICATION DECISION
+============================================================
+
+Example:
+
+User:
+    U001
+
+Similarity Score:
+    0.968
+
+Threshold:
+    0.850
+
+Decision:
+
+    0.968 >= 0.850
+
+Result:
+
+    ACCESS GRANTED
+
+
+Another attempt:
+
+Similarity Score:
+    0.412
+
+Threshold:
+    0.850
+
+Decision:
+
+    0.412 < 0.850
+
+Result:
+
+    ACCESS DENIED
+
+NOTE:
+
+The values above are examples only.
+
+The real threshold must be determined using validation data.
+
+
+============================================================
+20. AUTHENTICATION METRICS
+============================================================
+
+Accuracy alone is not sufficient for a biometric authentication
+system.
+
+The following metrics should be evaluated:
+
+1. FAR
+   False Acceptance Rate
+
+   Measures how often an impostor is incorrectly accepted.
+
+
+2. FRR
+   False Rejection Rate
+
+   Measures how often a genuine user is incorrectly rejected.
+
+
+3. EER
+   Equal Error Rate
+
+   Point where FAR and FRR are approximately equal.
+
+
+4. Precision
+
+
+5. Recall
+
+
+6. F1 Score
+
+
+7. ROC-AUC
+
+
+8. Authentication Latency
+
+
+9. Genuine Acceptance Rate
+
+
+10. Impostor Rejection Rate
+
+
+============================================================
+21. THRESHOLD SELECTION
+============================================================
+
+The ML model produces a score.
+
+The system defines a threshold T.
+
+If:
+
+    score >= T
+
+Then:
+
+    ACCEPT
+
+Otherwise:
+
+    REJECT
+
+The threshold should be selected using validation data rather than
+choosing an arbitrary value.
+
+Example:
+
+Threshold     FAR       FRR
+--------------------------------
+0.60          ...
+0.70          ...
+0.80          ...
+0.85          ...
+0.90          ...
+0.95          ...
+
+The final threshold should balance security and usability according
+to the project's evaluation criteria.
+
+
+============================================================
+22. APPLICATION ARCHITECTURE
+============================================================
+
+The final application can use:
+
+FRONTEND:
+    React + Vite
+
+BACKEND:
+    FastAPI
+
+DATABASE:
+    PostgreSQL / MongoDB / SQLite
+
+COMPUTER VISION:
+    OpenCV + MediaPipe
+
+MACHINE LEARNING:
+    scikit-learn / PyTorch
+
+The application architecture:
+
+                REACT FRONTEND
+                      |
+                      |
+                      v
+                FASTAPI BACKEND
+                      |
+        +-------------+-------------+
+        |             |             |
+        v             v             v
+     USER API      AUTH API      DATA API
+                      |
+                      v
+                 ML PIPELINE
+                      |
+                      v
+                AUTHENTICATION
+                      |
+                      v
+                   DATABASE
+
+
+============================================================
+23. FRONTEND LAYER
+============================================================
+
+The React frontend can contain:
+
+1. Landing Page
+2. Registration Page
+3. Login Page
+4. Air Signature Capture Page
+5. Authentication Result Page
+6. User Dashboard
+7. Secure Vault / ATM Demo
+8. Authentication History
+9. Admin/Research Dashboard
+
+Registration:
+
+    Create Account
+          |
+          v
+    Draw Signature
+          |
+          v
+    Capture Multiple Samples
+          |
+          v
+    Generate Profile
+          |
+          v
+    Registration Complete
+
+
+Authentication:
+
+    Enter User ID
+          |
+          v
+    Start Camera
+          |
+          v
+    Draw Signature
+          |
+          v
+    Authenticating...
+          |
+          v
+    Result
+
+
+============================================================
+24. BACKEND LAYER
+============================================================
+
+FastAPI can expose APIs such as:
+
+POST /api/register
+
+Purpose:
+    Create a user account.
+
+
+POST /api/signature/register
+
+Purpose:
+    Submit registration signature data.
+
+
+POST /api/authenticate
+
+Purpose:
+    Authenticate a new signature.
+
+
+GET /api/user/{user_id}
+
+Purpose:
+    Retrieve user information.
+
+
+GET /api/authentication/history/{user_id}
+
+Purpose:
+    Retrieve authentication history.
+
+
+The exact API design will be finalized after the ML pipeline is
+implemented.
+
+
+============================================================
+25. DATABASE LAYER
+============================================================
+
+The database can contain several logical tables/collections.
+
+
+USERS
+
+Fields:
+
+    user_id
+    username
+    created_at
+    account_status
+
+
+SIGNATURE_PROFILES
+
+Fields:
+
+    profile_id
+    user_id
+    model_version
+    embedding/profile data
+    created_at
+    updated_at
+
+
+SIGNATURE_SAMPLES
+
+Fields:
+
+    sample_id
+    user_id
+    session_id
+    file/reference
+    sample_type
+    created_at
+
+
+AUTHENTICATION_LOGS
+
+Fields:
+
+    authentication_id
+    user_id
+    timestamp
+    score
+    threshold
+    result
+    model_version
+
+
+Raw biometric data should be protected and should not be exposed
+unnecessarily.
+
+
+============================================================
+26. SECURE ATM / ACCOUNT DEMONSTRATION
+============================================================
+
+For the capstone presentation, we can build a simulated secure
+banking/ATM environment.
+
+Example:
+
+                    AIR ATM
+                       |
+                       v
+                Enter Account ID
+                       |
+                       v
+               Draw Air Signature
+                       |
+                       v
+                  Authenticate
+                   /         \
+                  /           \
+                 v             v
+             SUCCESS         FAILURE
+                |               |
+                v               v
+          ATM Dashboard     Access Denied
+                |
+       +--------+---------+
+       |        |         |
+       v        v         v
+    Balance  Withdraw  Deposit
+       |
+       v
+    History
+
+
+IMPORTANT:
+
+This is a simulation.
+
+It should NOT connect to real:
+
+- Bank accounts
+- ATM systems
+- Credit/debit cards
+- Real PINs
+- Financial credentials
+
+
+============================================================
+27. COMPLETE REGISTRATION FLOW
+============================================================
+
+USER
+ |
+ | Opens Registration
+ v
+REACT FRONTEND
+ |
+ | Camera Permission
+ v
+WEBCAM
+ |
+ v
+OPENCV FRAME CAPTURE
+ |
+ v
+MEDIAPIPE HAND DETECTION
+ |
+ v
+INDEX FINGER LANDMARK 8
+ |
+ v
+TRAJECTORY COLLECTOR
+ |
+ | x, y, z, timestamp
+ v
+RAW SIGNATURE
+ |
+ v
+DATA STORAGE
+ |
+ v
+PREPROCESSING
+ |
+ v
+FEATURE EXTRACTION
+ |
+ v
+MULTIPLE SIGNATURE SAMPLES
+ |
+ v
+PROFILE / MODEL GENERATION
+ |
+ v
+USER SIGNATURE PROFILE
+ |
+ v
+DATABASE
+ |
+ v
+REGISTRATION COMPLETE
+
+
+============================================================
+28. COMPLETE AUTHENTICATION FLOW
+============================================================
+
+USER
+ |
+ | Enter Account ID
+ v
+REACT FRONTEND
+ |
+ v
+CAMERA CAPTURE
+ |
+ v
+OPENCV
+ |
+ v
+MEDIAPIPE
+ |
+ v
+INDEX FINGER TRACKING
+ |
+ v
+TRAJECTORY
+ |
+ v
+PREPROCESSING
+ |
+ v
+FEATURE EXTRACTION
+ |
+ v
+TRAINED ML MODEL
+ |
+ v
+SIGNATURE EMBEDDING / PREDICTION
+ |
+ v
+COMPARE WITH STORED PROFILE
+ |
+ v
+SIMILARITY SCORE
+ |
+ v
+THRESHOLD CHECK
+ |
+ +----------------------------+
+ |                            |
+ | SCORE >= THRESHOLD         | SCORE < THRESHOLD
+ v                            v
+ACCESS GRANTED             ACCESS DENIED
+ |
+ v
+SECURE APPLICATION
+ |
+ v
+ATM / ACCOUNT / VAULT DEMO
+
+
+============================================================
+29. MODEL DEVELOPMENT PIPELINE
+============================================================
+
+STEP 1:
+    Build webcam data collector.
+
+STEP 2:
+    Integrate MediaPipe.
+
+STEP 3:
+    Track index fingertip.
+
+STEP 4:
+    Record air-signature trajectories.
+
+STEP 5:
+    Save trajectories as CSV.
+
+STEP 6:
+    Visualize collected signatures.
+
+STEP 7:
+    Implement preprocessing.
+
+STEP 8:
+    Implement feature extraction.
+
+STEP 9:
+    Collect the complete dataset.
+
+STEP 10:
+    Train classical baseline models.
+
+STEP 11:
+    Evaluate baseline models.
+
+STEP 12:
+    Implement LSTM/BiLSTM.
+
+STEP 13:
+    Evaluate sequence models.
+
+STEP 14:
+    Implement Siamese/metric-learning approach.
+
+STEP 15:
+    Compare models.
+
+STEP 16:
+    Select final architecture based on experimental results.
+
+STEP 17:
+    Determine authentication threshold.
+
+STEP 18:
+    Evaluate FAR/FRR/EER/ROC-AUC.
+
+STEP 19:
+    Test on unseen data.
+
+STEP 20:
+    Integrate final model with FastAPI.
+
+STEP 21:
+    Build React frontend.
+
+STEP 22:
+    Build simulated secure account/ATM system.
+
+STEP 23:
+    Perform end-to-end testing.
+
+STEP 24:
+    Prepare documentation, paper and presentation.
+
+
+============================================================
+30. ABLATION STUDY
+============================================================
+
+A strong capstone should investigate what contributes to the final
+authentication performance.
+
+Possible experiments:
+
+EXPERIMENT 1:
+    Position only
+
+    Features:
+        x, y, z
+
+
+EXPERIMENT 2:
+    Position + Velocity
+
+    Features:
+        x, y, z
+        vx, vy, vz
+
+
+EXPERIMENT 3:
+    Position + Velocity + Acceleration
+
+
+EXPERIMENT 4:
+    Geometric + Temporal Features
+
+
+EXPERIMENT 5:
+    Index Finger Only
+
+
+EXPERIMENT 6:
+    Full Hand Landmarks
+
+
+EXPERIMENT 7:
+    Classical ML
+
+
+EXPERIMENT 8:
+    LSTM / BiLSTM
+
+
+EXPERIMENT 9:
+    Siamese Network
+
+
+This provides a strong experimental component for the capstone.
+
+
+============================================================
+31. SIGNATURE VISUALIZATION MODULE
+============================================================
+
+A visualization module should be created for analyzing captured
+signatures.
+
+It should display:
+
+- 2D signature trajectory
+- 3D trajectory
+- Start point
+- End point
+- Number of points
+- Signature duration
+- Velocity graph
+- Acceleration graph
+- Bounding box
+
+Example:
+
+                    START
+                      *
+                     /
+                    /
+                   *
+                  / \
+                 /   \
+                *     *------*
+                              \
+                               *
+                              END
+
+
+This module will help with:
+
+- Debugging
+- Dataset inspection
+- Research analysis
+- Demonstrations
+- Detecting noisy recordings
+
+
+============================================================
+32. RECOMMENDED PROJECT STRUCTURE
+============================================================
+
+AirSign-Auth/
+|
++-- data/
+|   +-- raw/
+|   +-- processed/
+|   +-- features/
+|   +-- metadata/
+|
++-- data_collection/
+|   +-- collect_signature.py
+|   +-- visualize_signature.py
+|   +-- camera.py
+|   +-- hand_tracker.py
+|
++-- preprocessing/
+|   +-- normalize.py
+|   +-- resample.py
+|   +-- clean.py
+|
++-- features/
+|   +-- trajectory_features.py
+|   +-- temporal_features.py
+|   +-- geometric_features.py
+|
++-- models/
+|   |
+|   +-- baseline/
+|   |   +-- random_forest.py
+|   |   +-- svm.py
+|   |
+|   +-- sequence/
+|   |   +-- lstm.py
+|   |   +-- bilstm.py
+|   |
+|   +-- siamese/
+|       +-- network.py
+|       +-- embedding.py
+|
++-- training/
+|   +-- train_baseline.py
+|   +-- train_sequence.py
+|   +-- train_siamese.py
+|   +-- evaluate.py
+|
++-- authentication/
+|   +-- authenticator.py
+|   +-- similarity.py
+|   +-- threshold.py
+|
++-- backend/
+|   +-- main.py
+|   +-- routes/
+|   +-- services/
+|   +-- database/
+|
++-- frontend/
+|   +-- src/
+|       +-- components/
+|       +-- pages/
+|       +-- services/
+|       +-- hooks/
+|       +-- context/
+|
++-- notebooks/
+|   +-- data_analysis.ipynb
+|   +-- experiments.ipynb
+|
++-- tests/
+|
++-- requirements.txt
++-- README.md
++-- .gitignore
+
+
+============================================================
+33. COMPLETE END-TO-END DATA FLOW
+============================================================
+
+PHYSICAL WORLD
+    |
+    | User moves finger
+    v
+CAMERA
+    |
+    | Video frames
+    v
+OPENCV
+    |
+    | Processed frames
+    v
+MEDIAPIPE
+    |
+    | Hand landmarks
+    v
+LANDMARK FILTER
+    |
+    | Index fingertip
+    v
+TRAJECTORY COLLECTOR
+    |
+    | x, y, z, timestamp
+    v
+RAW SIGNATURE
+    |
+    v
+PREPROCESSING
+    |
+    v
+FEATURE ENGINEERING
+    |
+    +------------------------+
+    |                        |
+    v                        v
+REGISTRATION           AUTHENTICATION
+    |                        |
+    v                        v
+USER PROFILE             ML MODEL
+    |                        |
+    v                        v
+DATABASE                SCORE
+                             |
+                             v
+                         THRESHOLD
+                         /       \
+                        /         \
+                       v           v
+                    ACCEPT       REJECT
+                       |
+                       v
+                SECURE SERVICE
+
+
+============================================================
+34. SECURITY CONSIDERATIONS
+============================================================
+
+Because this is a biometric authentication system, security must be
+considered from the beginning.
+
+Important considerations:
+
+1. Do not store passwords in plain text.
+
+2. Protect database access.
+
+3. Protect stored biometric information.
+
+4. Do not expose raw biometric data unnecessarily.
+
+5. Authenticate API requests.
+
+6. Record authentication attempts.
+
+7. Version the ML model.
+
+8. Add rate limiting.
+
+9. Avoid real banking information.
+
+10. Investigate replay attacks.
+
+
+============================================================
+35. ADVANCED SECURITY FEATURES
+============================================================
+
+After the core system is working, the following features can be
+investigated:
+
+A. LIVENESS DETECTION
+
+Determine whether the signature is being performed live.
+
+
+B. 3D TRAJECTORY
+
+Use MediaPipe depth information.
+
+
+C. DYNAMIC BEHAVIOR
+
+Use:
+
+    Speed
+    Timing
+    Acceleration
+    Movement rhythm
+
+
+D. CHALLENGE-RESPONSE SIGNING
+
+Instead of asking for the exact same signature every time, the
+system could ask the user to draw a dynamically generated pattern.
+
+
+E. MULTI-FACTOR AUTHENTICATION
+
+Example:
+
+    Account ID
+        +
+    Air Signature
+        +
+    Optional PIN / OTP
+
+
+F. ANTI-REPLAY DETECTION
+
+Detect whether the captured movement is a replayed or previously
+recorded pattern.
+
+
+These are advanced/future modules and are not required for the
+first working prototype.
+
+
+============================================================
+36. FINAL CAPSTONE DEMONSTRATION
+============================================================
+
+A possible final demonstration:
+
+PART 1:
+    Create User
+
+PART 2:
+    Capture 10-20 air signatures
+
+PART 3:
+    Generate user signature profile
+
+PART 4:
+    Logout
+
+PART 5:
+    Enter Account ID
+
+PART 6:
+    Draw air signature
+
+PART 7:
+    System shows:
+
+        Hand Detected
+        Signature Captured
+        Features Extracted
+        Model Running
+        Authentication Score
+
+
+PART 8:
+    System shows:
+
+        ACCESS GRANTED
+
+
+PART 9:
+    Test with an impostor signature
+
+
+PART 10:
+    System shows:
+
+        ACCESS DENIED
+
+
+PART 11:
+    Research dashboard displays:
+
+        Accuracy
+        FAR
+        FRR
+        EER
+        ROC-AUC
+        Authentication Latency
+
+
+============================================================
+37. FINAL ARCHITECTURE SUMMARY
+============================================================
+
+USER
+  |
+  v
+WEBCAM
+  |
+  v
+OPENCV
+  |
+  v
+MEDIAPIPE HAND TRACKING
+  |
+  v
+INDEX FINGER / HAND LANDMARKS
+  |
+  v
+TRAJECTORY GENERATION
+  |
+  v
+RAW SIGNATURE DATA
+  |
+  v
+PREPROCESSING
+  |
+  v
+FEATURE EXTRACTION
+  |
+  +-------------------------------+
+  |                               |
+  v                               v
+REGISTRATION PIPELINE       AUTHENTICATION PIPELINE
+  |                               |
+  v                               v
+USER SIGNATURE PROFILE       TRAINED ML MODEL
+  |                               |
+  v                               v
+DATABASE                    SIMILARITY SCORE
+                                  |
+                                  v
+                           THRESHOLD CHECK
+                            /            \
+                           /              \
+                          v                v
+                       ACCEPT            REJECT
+                          |
+                          v
+                    SECURE SERVICE
+
+
+============================================================
+38. TECHNOLOGY STACK
+============================================================
+
+FRONTEND:
+    React
+    Vite
+    Tailwind CSS
+
+BACKEND:
+    FastAPI
+    Python
+
+COMPUTER VISION:
+    OpenCV
+    MediaPipe
+
+MACHINE LEARNING:
+    scikit-learn
+    PyTorch
+
+DATABASE:
+    PostgreSQL / MongoDB
+    SQLite for early prototype
+
+DATA FORMAT:
+    CSV
+    JSON
+
+VISUALIZATION:
+    Matplotlib
+    Plotly (optional)
+
+DEVELOPMENT:
+    Python Virtual Environment
+    Git
+    GitHub
+
+
+============================================================
+39. DEVELOPMENT ORDER
+============================================================
+
+DO NOT build the entire application at once.
+
+Build it in the following order:
+
+PHASE 1:
+    Webcam + MediaPipe
+
+PHASE 2:
+    Index fingertip tracking
+
+PHASE 3:
+    Air signature recording
+
+PHASE 4:
+    CSV dataset generation
+
+PHASE 5:
+    Signature visualization
+
+PHASE 6:
+    Preprocessing
+
+PHASE 7:
+    Feature extraction
+
+PHASE 8:
+    Dataset collection
+
+PHASE 9:
+    Baseline ML
+
+PHASE 10:
+    Authentication evaluation
+
+PHASE 11:
+    LSTM/BiLSTM
+
+PHASE 12:
+    Siamese Network
+
+PHASE 13:
+    Final model selection
+
+PHASE 14:
+    FastAPI integration
+
+PHASE 15:
+    React frontend
+
+PHASE 16:
+    Secure ATM/account simulation
+
+PHASE 17:
+    Testing
+
+PHASE 18:
+    Documentation
+
+PHASE 19:
+    Research paper
+
+PHASE 20:
+    Final presentation
+
+
+============================================================
+40. FIRST IMPLEMENTATION TARGET
+============================================================
+
+The FIRST working prototype should ONLY perform the following:
+
+    START WEBCAM
+         |
+         v
+    DETECT HAND
+         |
+         v
+    DETECT INDEX FINGER
+         |
+         v
+    TRACK INDEX FINGER
+         |
+         v
+    USER DRAWS SIGNATURE
+         |
+         v
+    GENERATE TRAJECTORY
+         |
+         v
+    DISPLAY TRAJECTORY
+         |
+         v
+    SAVE TRAJECTORY AS CSV
+
+
+Example output:
+
+data/raw/U001/S01/signature_001.csv
+
+
+Once this works correctly, we move to:
+
+    PREPROCESSING
+          |
+          v
+    FEATURE EXTRACTION
+          |
+          v
+    DATASET CREATION
+          |
+          v
+    MACHINE LEARNING
+          |
+          v
+    AUTHENTICATION
+
+
+============================================================
+                 END OF AIRSIGN AUTH
+              SYSTEM ARCHITECTURE
+============================================================

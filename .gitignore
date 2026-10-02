@@ -1,0 +1,33 @@
+# Dependencies / environments
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets
+.env
+!.env.example
+
+# Build output
+client/dist/
+
+# Collected biometric data must never be committed
+ml-service/data/collected/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# =============================================================================
+# FILE SUMMARY
+# -----------------------------------------------------------------------------
+# Git ignore rules: dependency folders and virtual environments, secrets
+# (.env files except the examples), build output, and - importantly - raw
+# biometric samples exported from MongoDB, which must stay out of version
+# control.  Trained models and calibration files ARE committed so the demo
+# works out of the box.
+# =============================================================================

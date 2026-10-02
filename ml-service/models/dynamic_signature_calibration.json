@@ -1,0 +1,18 @@
+{
+  "threshold": 1.2534434942569104,
+  "threshold_policy": "FAR <= 5% on web_registration",
+  "fusion_weights": {
+    "dtw": 0.45,
+    "embedding": 0.35,
+    "global": 0.2
+  },
+  "reference_priors": {
+    "dtw": 0.03536135193593884,
+    "embedding": 0.437680438631976,
+    "global": 0.8902959924374727
+  },
+  "enroll_samples": 8,
+  "embedding_model": "dynamic-20261002-060233",
+  "calibrated_at": "2026-10-02T06:22:09Z",
+  "source": "pipelines/evaluate_dynamic_signature_model.py"
+}

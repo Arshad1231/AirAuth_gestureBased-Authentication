@@ -1,0 +1,76 @@
+                    AIRSIGN AUTH
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+        ▼                ▼                ▼
+   DATA MODULE      CV MODULE        USER MODULE
+        │                │                │
+        └────────────┬───┘                │
+                     ▼                    │
+              TRAJECTORY MODULE           │
+                     │                    │
+                     ▼                    │
+             PREPROCESSING MODULE         │
+                     │                    │
+                     ▼                    │
+              FEATURE MODULE              │
+                     │                    │
+                     ▼                    │
+                ML MODULE                 │
+                     │                    │
+                     ▼                    │
+           AUTHENTICATION MODULE          │
+                     │                    │
+                     ├────────────────────┘
+                     ▼
+              BACKEND MODULE
+                     │
+                     ▼
+              DATABASE MODULE
+                     │
+                     ▼
+             FRONTEND MODULE
+                     │
+                     ▼
+             SECURE DEMO MODULE
+
+
+
+
+                                 RAW SIGNATURE
+                          │
+                          ▼
+                  ┌───────────────┐
+                  │    CLEANER    │
+                  └───────┬───────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │ TRACKING QUALITY  │
+                │                   │
+                │ • jumps           │
+                │ • time gaps       │
+                │ • MAD threshold   │
+                │ • quality score   │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                  ┌───────────────┐
+                  │ JITTER FILTER │
+                  │               │
+                  │ Median        │
+                  │ Moving Avg    │
+                  └───────┬───────┘
+                          │
+                          ▼
+                    NORMALIZATION
+                          │
+                          ▼
+                     RESAMPLING
+                       128 pts
+                          │
+                          ▼
+                 FEATURE ENGINEERING
+                          │
+                          ▼
+                         ML

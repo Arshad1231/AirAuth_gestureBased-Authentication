@@ -1,0 +1,294 @@
+{
+  "generated_at": "2026-10-02T06:22:09Z",
+  "embedding_model": "dynamic-20261002-060233",
+  "users": 3,
+  "signatures": 90,
+  "protocols": {
+    "web_registration": {
+      "components": {
+        "dtw": {
+          "genuine_trials": 60,
+          "impostor_trials": 120,
+          "genuine_mean": 0.03399951029084525,
+          "impostor_mean": 0.06633117520804024,
+          "eer": 0.13333333333333333,
+          "eer_threshold": 0.04917733763103358,
+          "roc_auc": 0.9127777777777778
+        },
+        "embedding": {
+          "genuine_trials": 60,
+          "impostor_trials": 120,
+          "genuine_mean": 0.493190390866309,
+          "impostor_mean": 0.7198150294682318,
+          "eer": 0.26666666666666666,
+          "eer_threshold": 0.6081037418839706,
+          "roc_auc": 0.8131944444444444
+        },
+        "global": {
+          "genuine_trials": 60,
+          "impostor_trials": 120,
+          "genuine_mean": 1.011036729857429,
+          "impostor_mean": 1.4833251506099099,
+          "eer": 0.21666666666666667,
+          "eer_threshold": 1.1392438932191282,
+          "roc_auc": 0.8616666666666667
+        }
+      },
+      "fused": {
+        "genuine_trials": 60,
+        "impostor_trials": 120,
+        "genuine_mean": 1.013576909856361,
+        "impostor_mean": 1.7323637100396108,
+        "eer": 0.08333333333333333,
+        "eer_threshold": 1.3478766976681682,
+        "roc_auc": 0.9429166666666666,
+        "operating_threshold": 1.2534434942569104,
+        "operating_far": 0.05,
+        "operating_frr": 0.16666666666666666
+      }
+    },
+    "multi_session": {
+      "components": {
+        "dtw": {
+          "genuine_trials": 90,
+          "impostor_trials": 180,
+          "genuine_mean": 0.033202684149429104,
+          "impostor_mean": 0.06518735023673093,
+          "eer": 0.14444444444444443,
+          "eer_threshold": 0.04664032419249954,
+          "roc_auc": 0.8885185185185185
+        },
+        "embedding": {
+          "genuine_trials": 90,
+          "impostor_trials": 180,
+          "genuine_mean": 0.4499532657660554,
+          "impostor_mean": 0.7371435050822979,
+          "eer": 0.18888888888888888,
+          "eer_threshold": 0.6213278431035046,
+          "roc_auc": 0.8769135802469136
+        },
+        "global": {
+          "genuine_trials": 90,
+          "impostor_trials": 180,
+          "genuine_mean": 0.8028283483787622,
+          "impostor_mean": 1.2867344913504772,
+          "eer": 0.13333333333333333,
+          "eer_threshold": 0.9525398156781184,
+          "roc_auc": 0.899320987654321
+        }
+      },
+      "fused": {
+        "genuine_trials": 90,
+        "impostor_trials": 180,
+        "genuine_mean": 1.0631242537627401,
+        "impostor_mean": 1.9183716182103407,
+        "eer": 0.14444444444444443,
+        "eer_threshold": 1.484498049292943,
+        "roc_auc": 0.8989506172839506,
+        "operating_threshold": 1.2534434942569104,
+        "operating_far": 0.03888888888888889,
+        "operating_frr": 0.2222222222222222
+      }
+    }
+  },
+  "calibration": {
+    "threshold": 1.2534434942569104,
+    "threshold_policy": "FAR <= 5% on web_registration",
+    "fusion_weights": {
+      "dtw": 0.45,
+      "embedding": 0.35,
+      "global": 0.2
+    },
+    "reference_priors": {
+      "dtw": 0.03536135193593884,
+      "embedding": 0.437680438631976,
+      "global": 0.8902959924374727
+    },
+    "enroll_samples": 8,
+    "embedding_model": "dynamic-20261002-060233",
+    "calibrated_at": "2026-10-02T06:22:09Z",
+    "source": "pipelines/evaluate_dynamic_signature_model.py"
+  },
+  "weight_search": [
+    {
+      "weights": {
+        "dtw": 0.4,
+        "embedding": 0.2,
+        "global": 0.4
+      },
+      "eer": 0.08333333333333333,
+      "roc_auc": 0.9476388888888889
+    },
+    {
+      "weights": {
+        "dtw": 0.6,
+        "embedding": 0.2,
+        "global": 0.2
+      },
+      "eer": 0.08333333333333333,
+      "roc_auc": 0.9469444444444445
+    },
+    {
+      "weights": {
+        "dtw": 0.8,
+        "embedding": 0.2,
+        "global": 0.0
+      },
+      "eer": 0.08333333333333333,
+      "roc_auc": 0.9427777777777778
+    },
+    {
+      "weights": {
+        "dtw": 0.4,
+        "embedding": 0.4,
+        "global": 0.2
+      },
+      "eer": 0.08333333333333333,
+      "roc_auc": 0.9406944444444445
+    },
+    {
+      "weights": {
+        "dtw": 0.8,
+        "embedding": 0.0,
+        "global": 0.2
+      },
+      "eer": 0.0875,
+      "roc_auc": 0.9456944444444444
+    },
+    {
+      "weights": {
+        "dtw": 0.6,
+        "embedding": 0.0,
+        "global": 0.4
+      },
+      "eer": 0.1,
+      "roc_auc": 0.9454166666666667
+    },
+    {
+      "weights": {
+        "dtw": 1.0,
+        "embedding": 0.0,
+        "global": 0.0
+      },
+      "eer": 0.1,
+      "roc_auc": 0.9390277777777778
+    },
+    {
+      "weights": {
+        "dtw": 0.4,
+        "embedding": 0.0,
+        "global": 0.6
+      },
+      "eer": 0.1,
+      "roc_auc": 0.9386111111111111
+    },
+    {
+      "weights": {
+        "dtw": 0.6,
+        "embedding": 0.4,
+        "global": 0.0
+      },
+      "eer": 0.1,
+      "roc_auc": 0.9381944444444444
+    },
+    {
+      "weights": {
+        "dtw": 0.2,
+        "embedding": 0.2,
+        "global": 0.6
+      },
+      "eer": 0.13333333333333333,
+      "roc_auc": 0.9334722222222223
+    },
+    {
+      "weights": {
+        "dtw": 0.2,
+        "embedding": 0.0,
+        "global": 0.8
+      },
+      "eer": 0.13333333333333333,
+      "roc_auc": 0.9095833333333333
+    },
+    {
+      "weights": {
+        "dtw": 0.2,
+        "embedding": 0.4,
+        "global": 0.4
+      },
+      "eer": 0.14583333333333331,
+      "roc_auc": 0.93
+    },
+    {
+      "weights": {
+        "dtw": 0.2,
+        "embedding": 0.6,
+        "global": 0.2
+      },
+      "eer": 0.15,
+      "roc_auc": 0.9088888888888889
+    },
+    {
+      "weights": {
+        "dtw": 0.0,
+        "embedding": 0.6,
+        "global": 0.4
+      },
+      "eer": 0.16249999999999998,
+      "roc_auc": 0.8901388888888889
+    },
+    {
+      "weights": {
+        "dtw": 0.4,
+        "embedding": 0.6,
+        "global": 0.0
+      },
+      "eer": 0.17916666666666664,
+      "roc_auc": 0.9159722222222222
+    },
+    {
+      "weights": {
+        "dtw": 0.0,
+        "embedding": 0.4,
+        "global": 0.6
+      },
+      "eer": 0.18333333333333332,
+      "roc_auc": 0.9019444444444444
+    },
+    {
+      "weights": {
+        "dtw": 0.0,
+        "embedding": 0.8,
+        "global": 0.2
+      },
+      "eer": 0.19583333333333336,
+      "roc_auc": 0.8627777777777778
+    },
+    {
+      "weights": {
+        "dtw": 0.0,
+        "embedding": 0.2,
+        "global": 0.8
+      },
+      "eer": 0.2,
+      "roc_auc": 0.8943055555555556
+    },
+    {
+      "weights": {
+        "dtw": 0.0,
+        "embedding": 0.0,
+        "global": 1.0
+      },
+      "eer": 0.2,
+      "roc_auc": 0.8619444444444444
+    },
+    {
+      "weights": {
+        "dtw": 0.2,
+        "embedding": 0.8,
+        "global": 0.0
+      },
+      "eer": 0.21666666666666667,
+      "roc_auc": 0.8798611111111111
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+# --- API ---------------------------------------------------------------
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+
+# --- ML core -------------------------------------------------------------
+numpy>=1.26
+tensorflow>=2.16        # Keras 3; optional at runtime (set AIRAUTH_ENABLE_NEURAL_MODELS=0)
+
+# --- Development / tests ---------------------------------------------------
+pytest>=8.0
+httpx>=0.27             # FastAPI TestClient
+matplotlib>=3.8         # optional: plots in reports
+
+# =============================================================================
+# FILE SUMMARY
+# -----------------------------------------------------------------------------
+# Python dependencies of the ML service.  FastAPI/uvicorn serve the API,
+# NumPy runs all preprocessing, features, DTW and metrics, and TensorFlow /
+# Keras 3 trains and runs the two embedding networks.  Without TensorFlow the
+# service still works using only the non-neural components.
+# =============================================================================

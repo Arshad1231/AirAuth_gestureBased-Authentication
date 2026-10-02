@@ -1,0 +1,68 @@
+{
+  "generated_at": "2026-10-02T06:16:58Z",
+  "embedding_model": "static-20261002-055446",
+  "results": {
+    "synthetic": {
+      "random_impostor": {
+        "genuine_trials": 600,
+        "impostor_trials": 1800,
+        "genuine_mean": 1.071179991448294,
+        "impostor_mean": 13.08610339439531,
+        "eer": 0.001388888888888889,
+        "eer_threshold": 3.6179120787582466,
+        "roc_auc": 0.9999824074074074,
+        "operating_threshold": 3.4191640497916382,
+        "operating_far": 0.0011111111111111111,
+        "operating_frr": 0.0033333333333333335
+      },
+      "shoulder_surfer": {
+        "genuine_trials": 600,
+        "impostor_trials": 300,
+        "genuine_mean": 1.071179991448294,
+        "impostor_mean": 1.251747078663629,
+        "eer": 0.37666666666666665,
+        "eer_threshold": 1.0651092790034933,
+        "roc_auc": 0.6451944444444444,
+        "operating_threshold": 3.4191640497916382,
+        "operating_far": 0.9966666666666667,
+        "operating_frr": 0.0033333333333333335
+      },
+      "component_template": {
+        "genuine_trials": 600,
+        "impostor_trials": 1800,
+        "genuine_mean": 0.4844190118867502,
+        "impostor_mean": 2.599720447826349,
+        "eer": 0.011666666666666667,
+        "eer_threshold": 1.3655660698743597,
+        "roc_auc": 0.9994953703703704
+      },
+      "component_embedding": {
+        "genuine_trials": 600,
+        "impostor_trials": 1800,
+        "genuine_mean": 0.0459894932366277,
+        "impostor_mean": 0.994001781138335,
+        "eer": 0.0016666666666666668,
+        "eer_threshold": 0.1882030040021112,
+        "roc_auc": 0.9999537037037037
+      }
+    }
+  },
+  "calibration": {
+    "fusion_weights": {
+      "template": 0.6,
+      "embedding": 0.4
+    },
+    "reference_priors": {
+      "template": 0.4138413124350151,
+      "embedding": 0.043503148834018096
+    },
+    "threshold": 3.4191640497916382,
+    "threshold_policy": "min(FAR <= 1.0% bound, 1.25 x genuine 99% quantile)",
+    "far_bound": 7.627654980146616,
+    "genuine_bound": 3.4191640497916382,
+    "data_source": "synthetic held-out gestures",
+    "embedding_model": "static-20261002-055446",
+    "calibrated_at": "2026-10-02T06:16:58Z",
+    "source": "pipelines/evaluate_static_gesture_model.py"
+  }
+}
