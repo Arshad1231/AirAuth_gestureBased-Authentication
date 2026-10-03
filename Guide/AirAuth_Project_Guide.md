@@ -590,6 +590,8 @@ cosine distance               = 1 − cos(a, b)               0 = identical dire
 
 The probe is compared with the **centroid** (average, then re-normalised to length 1) of the 5 enrolled fingerprints.
 
+> **Important:** this MLP is **not** trained on the user's gesture. It is trained once, offline, on synthetic hands (Part 8.4), saved as `static_gesture_embedding.keras` and only *used* at registration and login. Part 8.12 explains what it learns and exactly how it is applied to the stored 5 captures and the new one.
+
 ## 6.6 Registration checks (`verifier.enroll`)
 
 * At least 3 captures (website sends 5); all the same hand, else `mixed_handedness`.
@@ -778,6 +780,8 @@ The final cell is **0** → DTW says these are the same signature drawn at a dif
 > **What is `tf.function`?** A TensorFlow feature that converts the network into a pre-compiled graph. Without it, the GRU took ~1.9 s per check; with it ~45 ms.
 
 The probe fingerprint is compared by cosine distance with the centroid of the enrolled fingerprints (as in 6.5).
+
+> **Important:** this network is **not** trained on the user's signatures. It is trained once, offline, on synthetic writers (Part 8), saved as a `.keras` file and only *used* at registration and login. Part 8.11 walks through exactly what happens to it at each login.
 
 ## 7.5 Model C — behaviour statistics
 
@@ -1087,6 +1091,272 @@ score           = cosine distance;  then EER and ROC-AUC (defined in Part 14)
 ## 8.10 Saying it in 30 seconds
 
 > "We had no gesture dataset and only three people's signatures — far too few to train a neural network. So we built two simulators: a kinematic hand model that produces 2,048 different poses across random hand sizes, angles and camera noise, and a handwriting-motion model based on the 2/3 power law that produces writers — and skilled forgers who copy the shape with different rhythm. Using metric learning with CosFace, the networks learned to *compare* rather than *recognise*, so they work on people they've never seen. We tested only on held-out and real data. The gesture network transferred very well; the signature network shows a synthetic-to-real gap, which we cover with DTW and behaviour features and will close by fine-tuning on real users in CP2."
+
+## 8.11 What happens to the trained model after training
+
+### 8.11.1 A common misunderstanding
+
+> **Wrong picture:** "We take *the user's* 8 signatures, add noise to make many more, train the Conv1D + BiGRU + attention network on them, and then verify the next login."
+>
+> **Correct picture:** The network is trained **once, before any user exists**, on **made-up writers** that have nothing to do with real users. At registration and login the network is **never trained** — it is only **used**.
+
+### 8.11.2 Two completely separate phases
+
+```mermaid
+flowchart TB
+    subgraph P1[PHASE 1 - once, offline, by the team]
+        direction LR
+        A[400 synthetic writers<br/>+ 400 forgers<br/>9,600 fake signatures] --> B[Train Conv1D + BiGRU<br/>+ attention with CosFace]
+        B --> C[(.keras network<br/>+ .json scaling)]
+    end
+    subgraph P2[PHASE 2 - every registration and login, NO training]
+        direction LR
+        D[Registration:<br/>store 8 cleaned<br/>signatures + stats] --> E[(Template<br/>in MongoDB)]
+        E --> G[Compare new vs stored:<br/>DTW + network<br/>+ behaviour]
+        F[Login:<br/>1 new signature,<br/>cleaned] --> G
+        G --> H{score<br/>≤ 1.25?}
+    end
+    P1 -->|.keras loaded once at start-up, used as a fixed function| P2
+```
+
+**Phase 1 — training (once, offline).**
+
+* The team runs `run_full_pipeline`. The synthetic generator invents **400 writers and 400 forgers** (Part 8.5) — no real person's signature is involved.
+* The network is trained on those 9,600 fake signatures. It does not learn *anyone's* signature; it learns a **general skill**: turn *any* signature into 64 numbers so that the same writer gets similar numbers and different writers get different numbers.
+* The result is saved as `models/dynamic_signature_embedding.keras` and **never changes** unless the team retrains it.
+
+**Phase 2 — registration and login (no training at all).**
+
+* **Registration (8 signatures):** each is cleaned (trim idle, fix glitches, 128 points, normalise) and stored in the user's **template** together with its 12 behaviour statistics. The network is not changed.
+* **Login (1 signature):** the new signature is cleaned the same way and **compared with the stored 8** in three ways (8.11.5). Accept if the combined score ≤ 1.25.
+
+> **Analogy — a trained handwriting expert.** The network is like an expert who learned to compare handwriting by studying thousands of practice examples (the synthetic writers). When you register, the expert does **not** go back to school — they just keep your 8 signatures on file. When you log in, the expert compares your new signature with your file.
+
+### 8.11.3 What the `.keras` file is
+
+> **What is a `.keras` file?** The trained network saved to disk: its architecture (Conv1D → BiGRU → attention → 64 outputs) plus the **98,689 numbers it learned** during training. Next to it, the `.json` file stores the averages and spreads used to scale the input before it enters the network (`x' = (x − mean) / std`).
+
+Think of it as a **frozen function**:
+
+```
+fingerprint = network( one cleaned signature: 128 points × 9 values )   →   64 numbers (length 1)
+```
+
+What happens to it:
+
+1. **When the AI service starts**, `model_registry.py` loads the `.keras` file into memory once, compiles it with `tf.function` for speed, and runs one warm-up prediction.
+2. **At every login**, the verifier calls this function. It is never retrained or modified — only used.
+
+The gesture network (`static_gesture_embedding.keras`) works exactly the same way for Step 1, with 89 hand numbers in instead of a signature.
+
+### 8.11.4 What happens at login, step by step
+
+The user's stored template holds their 8 **cleaned signatures** (not fingerprints).
+
+```
+1. New signature arrives  →  cleaned the same way (128 points, normalised)
+
+2. Run all 9 through the network:
+       stored 1 → fingerprint f1
+       stored 2 → fingerprint f2
+       …
+       stored 8 → fingerprint f8
+       new one  → fingerprint f_new
+
+3. centre = average of f1 … f8, re-scaled to length 1
+
+4. network distance = 1 − cosine( f_new , centre )
+
+5. user's normal variation: for each stored fingerprint, its distance to the centre of the
+   other 7 (leave-one-out), averaged  →  network_ref
+
+6. network score = network distance ÷ effective reference (Part 9.1)
+```
+
+*Tiny example* (3 numbers instead of 64). The user's centre = (0.60, 0.80, 0.00).
+
+* A **genuine** new signature gives f_new = (0.58, 0.81, 0.08):
+  dot = 0.60×0.58 + 0.80×0.81 + 0 = 0.996; length of f_new = 0.999 → cosine = 0.996 → **distance ≈ 0.004** (very close).
+* An **impostor** gives f_new = (0.10, 0.30, 0.95):
+  dot = 0.06 + 0.24 + 0 = 0.30; length = 1.001 → cosine = 0.30 → **distance ≈ 0.70** (far).
+
+Step 5 matters because people differ: a distance of 0.5 is suspicious for a very consistent signer but normal for an inconsistent one, so the distance is judged against *this user's* own variation.
+
+### 8.11.5 The network is only one of three comparisons
+
+The new signature is compared with the stored 8 in **three independent ways**:
+
+| Comparison | Uses the `.keras` file? | What it compares | Weight |
+|---|---|---|---|
+| **DTW** (Part 7.3) | No | The path's shape and timing against the **closest** stored signature | 0.45 |
+| **Network fingerprint** | **Yes** | The new fingerprint against the **centre** of the 8 stored fingerprints | 0.35 |
+| **Behaviour statistics** (Part 7.5) | No | 12 numbers (duration, pauses, speed …) against the stored average | 0.20 |
+
+```
+combined = 0.45 × DTW + 0.35 × network + 0.20 × behaviour      →  ACCEPT if ≤ 1.25
+```
+
+If the `.keras` file were missing, the system would still work with DTW + behaviour alone (its weight is redistributed automatically).
+
+### 8.11.6 Why we store signatures, not fingerprints
+
+The fingerprints are **recomputed at every login** from the stored cleaned signatures. This is deliberate: when the team later retrains the network on real users' data and replaces the `.keras` file, **every existing user keeps working** — their fingerprints are simply recomputed with the new network. If fingerprints were stored, everyone would have to register again after every retraining.
+
+### 8.11.7 Why we don't train a separate model for each user
+
+Training on each user's own signatures (the "wrong picture" above) is a real technique — a **per-user model** — but it doesn't suit this project:
+
+1. **No "wrong" examples.** To learn what is *not* you, the model needs examples of other people trying to be you — we have none at registration.
+2. **Slow.** Registration would take minutes of training instead of under a second.
+3. **Noise isn't new information.** Adding noise to 8 signatures doesn't teach the model how *you* really vary from day to day.
+
+Our approach needs **no training per user**: registration and login take well under a second, and the same network works for anyone — including people who registered after it was trained.
+
+### 8.11.8 The only part that "learns" from the user
+
+**Template adaptation** (Part 7.8): when a login is accepted with a comfortable margin (score ≤ 0.94), that signature is **added to the user's stored signatures** (up to 20). This only adds to the file — the network itself still does not change.
+
+### 8.11.9 One line for your guide
+
+> "The network is trained once, on synthetic writers, to learn *how to compare* signatures, and saved as a `.keras` file that is loaded at start-up and used as a fixed function. When a user registers we only store their 8 cleaned signatures; at login the new signature is cleaned the same way and compared with them three ways — DTW, the network's fingerprints, and behaviour statistics — and the combined score decides. There is no training per user."
+
+## 8.12 The static gesture: what the synthetic hands teach the MLP, and how its `.keras` file is used
+
+Everything in 8.11 also applies to Step 1, with a different network and different data. This section walks through the gesture side on its own.
+
+### 8.12.1 Which model is trained on the synthetic hands
+
+| | Static gesture (Step 1) | Air signature (Step 2) |
+|---|---|---|
+| Synthetic data | `synthetic_hand.py` — 2,048 poses | `synthetic_signature.py` — 400 writers + 400 forgers |
+| Model trained on it | **MLP** (Part 6.5): 89 → 256 → 256 → 128 → 64 | Conv1D + BiGRU + attention (Part 7.4) |
+| Saved as | `models/static_gesture_embedding.keras` (+ `.json`) | `models/dynamic_signature_embedding.keras` (+ `.json`) |
+| Parameters | 131,520 | 98,689 |
+
+The synthetic hands train **only the MLP**. The two networks are separate and never share data.
+
+```mermaid
+flowchart TB
+    subgraph P1[PHASE 1 - once, offline, by the team]
+        direction LR
+        A[synthetic_hand.py<br/>1,638 training poses<br/>x 40 random hands = 65,520] --> B[115 measurements<br/>keep 89 pose numbers]
+        B --> C[Train the MLP<br/>with CosFace]
+        C --> D[(static_gesture_embedding<br/>.keras + .json)]
+    end
+    subgraph P2[PHASE 2 - registration and login, NO training]
+        direction LR
+        E[Registration:<br/>5 captures -> 5 x 115<br/>measurements + hand] --> F[(Template<br/>in MongoDB)]
+        F --> H[Compare new vs stored 5:<br/>template matcher<br/>+ MLP fingerprints]
+        G[Login:<br/>1 capture -> 115<br/>measurements] --> H
+        H --> I{score<br/>≤ 3.42?}
+    end
+    P1 -->|.keras loaded once at start-up, used as a fixed function| P2
+```
+
+### 8.12.2 What the MLP learns from the synthetic hands
+
+It learns **one skill: telling whether two hand poses are the same pose, regardless of whose hand it is or how the hand is held.** It does not learn any particular gesture or any particular person.
+
+**How the training forces this.** Training is a quiz over **1,638 poses**. Each pose is shown about 40 times, and every time the things that *should not* matter are changed at random:
+
+| Changed at random every time (must be ignored) | Kept the same (must be recognised) |
+|---|---|
+| Whose hand it is — finger lengths, palm width | Which fingers are straight, half-bent, curled or hooked |
+| Tilt towards the camera (up to ±35°) | Whether the fingers are spread or together |
+| Position and size in the frame | Where the thumb is |
+| Small joint wobble (±5°) and tracking noise | |
+| Left or right hand (50% mirrored) | |
+
+The network must say *which of the 1,638 poses* each example is, with a safety margin (CosFace, Part 8.6.2). The **only way** to succeed is to ignore the left column and focus on the right column.
+
+**What it ends up knowing.**
+
+1. **What to ignore** — hand size and shape, viewing angle, position, MediaPipe jitter (especially the unreliable depth values) and small natural wobble. A finger bent 10° or 15° is the same pose.
+2. **What matters, and how much** — which joints are bent and roughly how far, where the thumb sits, how far apart the fingers are, and which of the 89 inputs are reliable (joint angles and fingertip distances are trustworthy; depth is not).
+3. **How measurements move together** — when a finger curls, several inputs change *together*: its joint angles rise, its fingertip moves towards the palm, and its distances to the other fingertips shrink. The network learns to treat this as **one change** ("this finger is curled"), not as ten unrelated differences. The hand-made template matcher cannot do this; it simply adds up differences using weights we chose.
+
+**What the 64-number fingerprint means.** After training, any hand becomes 64 numbers arranged so that the **same pose** (any person, any angle) gives fingerprints **close together**, and a **different pose** gives fingerprints **far apart**. The 1,638-pose quiz (the CosFace head) is thrown away — pose names are never needed.
+
+**Proof that it learned the skill, not the examples.** It was tested on **410 poses it never saw during training** and still separated them almost perfectly: **0.07% error**. If it had memorised the 1,638 training poses, it would have failed on new ones. This matters because every real user invents their *own* gesture, which the network has never seen.
+
+**What it does not learn.**
+
+* **Your gesture specifically** — it never sees real users during training.
+* **Whose hand it is** — it is deliberately trained to *ignore* the person. The hand-geometry group in the template matcher adds a little of that, and Step 2 is the real "is it really you?" check.
+* **Poses outside the simulator** — it saw 4 states per finger, 2 spreads and 4 thumb positions. A real "in-between" pose still gets a sensible fingerprint, but real-world accuracy will be lower than the synthetic 0.07% until it is checked with real users in CP2.
+
+### 8.12.3 Which 89 of the 115 measurements go into the MLP
+
+| Group | Count | Into the MLP? | Why |
+|---|---|---|---|
+| Canonical x, y | 40 | Yes | Pose shape |
+| Canonical z | 20 | Yes | Pose depth (the network learns how much to trust it) |
+| Joint angles | 15 | Yes | Pose |
+| Fingertip distances | 10 | Yes | Pose |
+| Abduction | 4 | Yes | Pose |
+| Orientation | 6 | **No** | Palm direction is not pose *shape* — handled by the template matcher (thumbs-up vs thumbs-down) |
+| Hand geometry | 20 | **No** | Whose hand it is, not the pose — the network is meant to ignore the person |
+| **Total into MLP** | **89** | | `features.pose_vector()` selects them |
+
+### 8.12.4 How the `.keras` file is used on the stored 5 and the new capture
+
+**At start-up:** `model_registry.py` loads `static_gesture_embedding.keras` and its `.json` (the 89 averages and 89 spreads used for scaling), compiles it and runs a warm-up.
+
+**At login** (`static_gesture/verifier.py`, function `component_scores`):
+
+```
+stored template :  5 captures × 115 measurements      (from registration)
+new capture     :  1 × 115 measurements               (cleaned + measured the same way)
+
+1. Stack them              →  6 × 115
+2. Keep the 89 pose numbers →  6 × 89                  (features.pose_vector)
+3. Scale each number        →  x' = (x − mean) / std   (mean and std from the .json file)
+4. Run the MLP once on all 6 →  6 fingerprints × 64 numbers, each of length 1
+       rows 1–5 = stored fingerprints s1 … s5,   row 6 = new fingerprint f_new
+5. centre  = average of s1 … s5, re-scaled to length 1
+6. network distance  = 1 − cosine( f_new , centre )
+7. user's own variation (leave-one-out): for each stored s_i, its distance to the centre
+   of the other 4, averaged  →  network_ref
+8. network score = network distance ÷ √( max(network_ref, 0.01) × 0.0435 )
+```
+
+At the same time, the template matcher compares the new 115 numbers with the average of the 5 stored ones (Part 6.4) — **no network involved**. Then:
+
+```
+combined = 0.6 × template score + 0.4 × network score      →  ACCEPT if ≤ 3.42
+```
+
+Before scoring, two instant rejections: **wrong hand** (handedness differs from registration) and **exact replay** (all 115 numbers identical to a stored capture within 0.000001).
+
+**Worked example.** The user's own variations are 0.55 (template) and 0.040 (network); the population averages are 0.414 and 0.0435, so the effective references are √(0.55 × 0.414) = **0.477** and √(0.040 × 0.0435) = **0.0417**.
+
+| Attempt | Template distance → score | Network distance → score | Combined | Decision |
+|---|---|---|---|---|
+| **Genuine** (same gesture) | 0.62 ÷ 0.477 = **1.30** | 0.03 ÷ 0.0417 = **0.72** | 0.6 × 1.30 + 0.4 × 0.72 = **1.07** | Accept (match ≈ 84%) |
+| **Impostor** (different gesture) | 3.0 ÷ 0.477 = **6.29** | 0.60 ÷ 0.0417 = **14.4** | 0.6 × 6.29 + 0.4 × 14.4 = **9.53** | Reject |
+
+**Why the fingerprints are recomputed every time.** The template stores the 115 measurements, not the fingerprints. If the MLP is retrained later and the `.keras` file replaced, every existing user keeps working — their fingerprints are simply recomputed with the new network.
+
+### 8.12.5 Static vs dynamic — the whole picture side by side
+
+| | Static gesture (Step 1) | Air signature (Step 2) |
+|---|---|---|
+| Trained on | 2,048 synthetic **poses** | 400 synthetic **writers** + 400 forgers |
+| Network | MLP, 89 → 64 | Conv1D + BiGRU + attention, 128 × 9 → 64 |
+| Learns to ignore | Hand size, angle, position, jitter, left/right | Size, position, small shape and tempo changes, noise |
+| Learns to focus on | Which joints bend, thumb, spread | Shape and **motion** (rhythm, speed) |
+| Registration | 5 captures | 8 signatures |
+| Stored | 5 × 115 measurements + hand | 8 cleaned paths + 12 statistics each |
+| Comparisons at login | Template matcher + network | DTW + network + behaviour |
+| Weights | 0.6 / 0.4 | 0.45 / 0.35 / 0.20 |
+| Threshold | 3.42 | 1.25 |
+| Instant rejects | Wrong hand, exact replay | Near-exact replay |
+| Learns from logins? | No | Yes (template adaptation) |
+| Test on unseen synthetic data | 0.07% error (410 poses) | 1.5% error (60 writers) |
+
+### 8.12.6 One line for your guide
+
+> "The synthetic hands train the MLP to recognise *the pose* while ignoring hand size, camera angle, jitter and which hand is used — it worked on 410 poses it had never seen with 0.07% error. At registration we store 115 measurements from each of 5 captures. At login, the 5 stored captures and the new one go through the saved `.keras` MLP to get 64-number fingerprints; the new fingerprint's distance to the centre of the 5, together with a direct measurement comparison, is combined 60/40 against a threshold of 3.42."
 
 ---
 
@@ -1515,6 +1785,18 @@ A: It would need thousands of labelled people and a GPU, it would upload video (
 
 **Q: How can you train a network with only 3 users?**
 A: We don't train on them. We train on thousands of synthetic hands and writers using metric learning (CosFace), so the network learns to compare, not to recognise fixed people. The 3 real users are only used for testing.
+
+**Q: Do you train the model on each user's signature when they register?**
+A: No. The network is trained once, offline, on synthetic writers, to learn how to compare signatures. Registration only stores the user's 8 cleaned signatures; at login the new one is compared with them. No training happens per user — registration and login take under a second (Part 8.11).
+
+**Q: What is the `.keras` file and how is it used?**
+A: It's the trained network saved to disk. The AI service loads it once at start-up and uses it as a fixed function that turns a signature into 64 numbers. At login, the 8 stored signatures and the new one are run through it, and the new fingerprint's distance to their centre is one of three scores (with DTW and behaviour statistics).
+
+**Q: What does the gesture network learn from synthetic hands?**
+A: To recognise *the pose* while ignoring hand size, camera angle, position, jitter and which hand is used — because every pose was shown on many random hands and angles. It turns any hand into a 64-number fingerprint where the same pose lands close together, and it worked on 410 poses it had never seen (0.07% error). It is trained once and only used afterwards (Part 8.12).
+
+**Q: How is the gesture `.keras` file used at login?**
+A: The 5 stored captures and the new one (89 pose numbers each, scaled with the saved averages) are run through the MLP in one go, giving 6 fingerprints. The new fingerprint's cosine distance to the centre of the 5 is divided by the user's own variation and combined 40% with the template matcher's 60% against a threshold of 3.42.
 
 **Q: What is DTW and why use it?**
 A: Dynamic Time Warping aligns two paths even if one was drawn faster in places. It needs no training and was the best method in our research.
