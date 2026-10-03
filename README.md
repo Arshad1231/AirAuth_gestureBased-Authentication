@@ -61,6 +61,7 @@ for setup, the demo script and next steps.
 | [03_Dynamic_Signature_Model](Architecture/03_Dynamic_Signature_Model.md) | Step 2 preprocessing, features, network, results |
 | [04_ML_Pipelines](Architecture/04_ML_Pipelines.md) | Training, evaluation, calibration, retraining loop |
 | [05_Project_Flow](Architecture/05_Project_Flow.md) | What to do, in order — setup, run, demo, roadmap |
+| [06_AI_Models_Explained](Architecture/06_AI_Models_Explained.md) | Plain-language guide: every model and technique, why it was chosen, why it beats the alternatives |
 
 <!--
 =============================================================================
